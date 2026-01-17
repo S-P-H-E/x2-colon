@@ -36,7 +36,8 @@ async fn timestamp(Json(payload): Json<TimeRequest>) -> Result<Json<ParseOutput>
         .validate()
         .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
 
-    let result = calculate_durations(&payload.content);
+    let result = calculate_durations(&payload.content)
+        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     
     if result.lines.is_empty() {
         return Err((StatusCode::BAD_REQUEST, "No valid timestamps found".to_string()));
