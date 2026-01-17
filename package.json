@@ -1,0 +1,11 @@
+{
+  "name": "v1-caption",
+  "scripts": {
+    "dev": "concurrently -n server,frontend -c blue,green --kill-others \"pnpm server:dev\" \"pnpm frontend:dev\"",
+    "server:dev": "cd apps/server && cargo watch -x 'run -q'",
+    "frontend:dev": "cd apps/frontend && bun dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
