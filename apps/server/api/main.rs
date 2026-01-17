@@ -5,14 +5,14 @@ use axum::{
     routing::{get, post},
 };
 use dotenvy::dotenv;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tower::ServiceBuilder;
 use tower_http::cors::{Any, CorsLayer};
 use validator::Validate;
 use vercel_runtime::Error;
 use vercel_runtime::axum::VercelLayer;
-use x2_colon_api::parser::{ParseOutput, calculate_durations};
+use x2_colon_api::parser::{ParseOutput, calculate_durations, clean_script};
 
 async fn favicon() -> impl IntoResponse {
     (
@@ -31,6 +31,17 @@ struct TimeRequest {
     content: String,
 }
 
+#[derive(Deserialize, Validate)]
+struct CleanRequest {
+    #[validate(length(min = 1))]
+    script: String,
+}
+
+#[derive(Serialize)]
+struct CleanResponse {
+    cleaned: String,
+}
+
 async fn timestamp(Json(payload): Json<TimeRequest>) -> Result<Json<ParseOutput>, (StatusCode, String)> {
     payload
         .validate()
@@ -46,6 +57,15 @@ async fn timestamp(Json(payload): Json<TimeRequest>) -> Result<Json<ParseOutput>
     Ok(Json(result))
 }
 
+async fn clean(Json(payload): Json<CleanRequest>) -> Result<Json<CleanResponse>, (StatusCode, String)> {
+    payload
+        .validate()
+        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+
+    let cleaned = clean_script(&payload.script);
+    Ok(Json(CleanResponse { cleaned }))
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     dotenv().ok();
@@ -59,6 +79,7 @@ async fn main() -> Result<(), Error> {
     let router = Router::new()
         .route("/", get(hello))
         .route("/timestamp", post(timestamp))
+        .route("/clean", post(clean))
         .route("/favicon.ico", get(favicon))
         .layer(cors);
 

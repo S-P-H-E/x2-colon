@@ -233,3 +233,83 @@ pub fn calculate_durations(input: &str) -> Result<ParseOutput, String> {
         },
     })
 }
+
+pub fn clean_script(input: &str) -> String {
+    let ranges = find_all_ranges(input);
+    
+    // If parsing fails or no ranges found, return original
+    let ranges = match ranges {
+        Ok(r) if !r.is_empty() => r,
+        _ => return input.to_string(),
+    };
+    
+    let mut result = String::with_capacity(input.len());
+    let mut last_pos = 0;
+    let mut i = 0;
+    
+    while i < ranges.len() {
+        let range = &ranges[i];
+        let text_start = last_pos;
+        let mut text_end = range.start_pos;
+        let mut skip_to = range.end_pos;
+        
+        // Check if there's a space before the timestamp
+        let before_space = text_end > 0 && input.as_bytes().get(text_end - 1) == Some(&b' ');
+        if before_space {
+            text_end -= 1; // Exclude the space before
+        }
+        
+        // Check if this range is connected to the next one with " + "
+        if i + 1 < ranges.len() {
+            let between = &input[range.end_pos..ranges[i + 1].start_pos];
+            if between.trim() == "+" {
+                // Skip this range, the " + ", and the next range
+                skip_to = ranges[i + 1].end_pos;
+                i += 1; // Skip the next range in the loop
+            }
+        }
+        
+        // Check if there's a space after the timestamp
+        let after_space = skip_to < input.len() && input.as_bytes().get(skip_to) == Some(&b' ');
+        if after_space {
+            skip_to += 1; // Skip the space after
+        }
+        
+        // Add text before this range (excluding space before if present)
+        result.push_str(&input[text_start..text_end]);
+        
+        // If we removed spaces on both sides and we're joining words, add a single space
+        let before_char = if text_end > 0 { 
+            input[text_end - 1..].chars().next() 
+        } else { 
+            None 
+        };
+        let after_char = if skip_to < input.len() { 
+            input[skip_to..].chars().next() 
+        } else { 
+            None 
+        };
+        
+        // Check if we need to add a space (joining two alphanumeric characters)
+        let needs_space = before_char.is_some() 
+            && after_char.is_some()
+            && before_char.unwrap().is_alphanumeric()
+            && after_char.unwrap().is_alphanumeric()
+            && !before_space && !after_space;
+        
+        if needs_space {
+            result.push(' ');
+        }
+        
+        last_pos = skip_to;
+        i += 1;
+    }
+    
+    // Add remaining text after last range
+    result.push_str(&input[last_pos..]);
+    
+    // Clean up any leftover " + " that might be orphaned
+    result = result.replace(" + ", " ").replace("+ ", "").replace(" +", "");
+    
+    result
+}
