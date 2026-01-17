@@ -5,13 +5,14 @@ use axum::{
     routing::{get, post},
 };
 use dotenvy::dotenv;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::json;
 use tower::ServiceBuilder;
 use tower_http::cors::{Any, CorsLayer};
 use validator::Validate;
 use vercel_runtime::Error;
 use vercel_runtime::axum::VercelLayer;
+use x2_colon_api::parser::{ParseOutput, calculate_durations};
 
 async fn favicon() -> impl IntoResponse {
     (
@@ -30,22 +31,18 @@ struct TimeRequest {
     content: String,
 }
 
-#[derive(Serialize)]
-struct TimeResponse {
-    duration: i32,
-}
-
-async fn timestamp(
-    Json(payload): Json<TimeRequest>,
-) -> Result<Json<TimeResponse>, (StatusCode, String)> {
+async fn timestamp(Json(payload): Json<TimeRequest>) -> Result<Json<ParseOutput>, (StatusCode, String)> {
     payload
         .validate()
         .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
 
-    let _content = &payload.content;
-    let duration = 10;
+    let result = calculate_durations(&payload.content);
+    
+    if result.lines.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "No valid timestamps found".to_string()));
+    }
 
-    Ok(Json(TimeResponse { duration }))
+    Ok(Json(result))
 }
 
 #[tokio::main]
